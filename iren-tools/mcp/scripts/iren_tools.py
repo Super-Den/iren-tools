@@ -322,10 +322,12 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False,
                              % (qname(q), a[:60], b[:60], ", ".join(x + "/" + y for x, y in diff)))
 
         # Серии: одинаковые списки вариантов в одной секции
-        key = frozenset(v[0] for v in variants if v[0])
+        key = frozenset((v[0], v[1]) for v in variants if v[0] or v[1])
         sec = next(iter(sections_of(q)), None)
         sec_title = sec.get("title") if sec is not None else "?"
-        correct_set = frozenset(norm_space(content_texts(c.find("content"))) for c in correct if c.find("content") is not None)
+        correct_set = frozenset(
+            norm_space(content_texts(c.find("content"))) + "|" + " ".join(content_images(c.find("content")))
+            for c in correct if c.find("content") is not None)
         series.setdefault((sec_title, key), []).append((q, correct_set))
 
     for (sec_title, _key), group in series.items():
