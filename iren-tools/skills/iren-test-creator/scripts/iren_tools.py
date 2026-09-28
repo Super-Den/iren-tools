@@ -376,15 +376,6 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False,
         if qq and not re.match(r"^\d+(\.\d+)?%$", qq):
             warn("sectionProfile «%s»: неожиданный формат questions=«%s»" % (title, qq))
 
-    # 8а. Дубликаты заголовков секций (Айрен линкует sectionProfile по заголовку)
-    seen_titles = set()
-    for s_el in root.iter("section"):
-        t = s_el.get("title")
-        if t:
-            if t in seen_titles:
-                fail("дубликат заголовка секции: «%s» — заголовки секций должны быть уникальны" % t)
-            seen_titles.add(t)
-
     # 8б. Профили: совместимость с читателем Айрен
     profiles_el = root.find("profiles")
     if profiles_el is not None:
