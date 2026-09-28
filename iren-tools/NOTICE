@@ -1,3 +1,23 @@
-Iren
-© 2012–2020 Sergey Ostanin
-https://irenproject.ru/beta/
+IREN Tools
+Copyright 2026 Super-Den
+
+Этот продукт содержит компоненты программы «Айрен»:
+
+  Iren
+  © 2012–2020 Sergey Ostanin
+  https://irenproject.ru/beta/
+
+  Файл mcp/assets/formulaRenderer.js включён в неизменном виде
+  (компонент дистрибутива Айрен 0.2020.08.1, Apache License 2.0).
+  Внутри него содержится MathJax 2.7.3
+  (© MathJax Consortium, Apache License 2.0).
+
+Зависимости npm (каталог mcp/node_modules) распространяются в составе
+каждого пакета под собственными лицензиями (MIT, BSD-2/3, Apache-2.0
+и др.); перечень версий — в mcp/package-lock.json.
+
+Остальной код продукта распространяется по Apache License 2.0
+(файл LICENSE).
+
+Создано при помощи ИИ-ассистента (ZCode) под руководством автора;
+весь код проверен и опубликован вручную.
