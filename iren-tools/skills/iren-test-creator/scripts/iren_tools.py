@@ -164,7 +164,8 @@ def content_images(content):
     return [i.get("src", "") for i in content.iter("img")]
 
 
-def validate(root, source_dir, check_near_dups=False, check_blank=False):
+def validate(root, source_dir, check_near_dups=False, check_blank=False,
+             img_min=24, img_max_question=500, img_max_answer=400):
     """Все проверки теста. Возвращает (список вопросов, число картинок-ссылок)."""
     questions = list(root.iter("question"))
     # Номер вопроса в списке программы «Айрен» = порядковый номер в файле
@@ -216,6 +217,44 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False):
     def has_add_negative(q):
         return any(m.get("type") == "addNegativeChoice"
                    for s in sections_of(q) for m in s.findall("modifiers/modifier"))
+
+    # 2б. Размеры изображений (ширина и высота, пиксели; PNG)
+    def png_size(path):
+        try:
+            with open(path, "rb") as f:
+                head = f.read(24)
+            if head[:8] != bytes([0x89]) + b'PNG' + bytes([0x0D, 0x0A, 0x1A, 0x0A]):
+                return None
+            return (int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big"))
+        except Exception:
+            return None
+
+    def ancestors_tags(el):
+        a = parent.get(el)
+        while a is not None:
+            yield a.tag
+            a = parent.get(a)
+
+    answer_markers = ("choice", "baseItem", "matchingItem", "distractor", "sequenceItem", "categoryItem")
+    for img in root.iter("img"):
+        src = img.get("src", "")
+        if not src or not src.lower().endswith(".png"):
+            continue
+        fp = os.path.join(source_dir, src.replace("/", os.sep))
+        if not os.path.isfile(fp):
+            continue
+        dims = png_size(fp)
+        if not dims:
+            continue
+        w, h = dims
+        chain = list(ancestors_tags(img))
+        ctx = "answer" if any(t in chain for t in answer_markers) else "question"
+        cap = img_max_answer if ctx == "answer" else img_max_question
+        ctx_name = "варианта ответа" if ctx == "answer" else "вопроса"
+        if w > cap or h > cap:
+            warn("изображение %s (%dx%d) превышает максимум для %s (%dx%d) — уменьшите рисунок; файл собран" % (src, w, h, ctx_name, cap, cap))
+        elif w < img_min or h < img_min:
+            warn("изображение %s (%dx%d) меньше минимума (%dx%d) — размер шрифта; при необходимости увеличьте" % (src, w, h, img_min, img_min))
 
     # 3. select-вопросы
     series = {}  # (frozenset вариантов) -> [(tag, correct_set)]
@@ -329,6 +368,15 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False):
         if qq and not re.match(r"^\d+(\.\d+)?%$", qq):
             warn("sectionProfile «%s»: неожиданный формат questions=«%s»" % (title, qq))
 
+    # 8а. Дубликаты заголовков секций (Айрен линкует sectionProfile по заголовку)
+    seen_titles = set()
+    for s_el in root.iter("section"):
+        t = s_el.get("title")
+        if t:
+            if t in seen_titles:
+                fail("дубликат заголовка секции: «%s» — заголовки секций должны быть уникальны" % t)
+            seen_titles.add(t)
+
     # 8б. Профили: совместимость с читателем Айрен
     profiles_el = root.find("profiles")
     if profiles_el is not None:
@@ -336,11 +384,12 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False):
             ptitle = prof.get("title") or "?"
             has_sp = prof.find("sectionProfile") is not None
             qs_el = prof.find("questionSelection")
-            if not has_sp:
-                if qs_el is None:
-                    fail("профиль «%s»: нет questionSelection и нет sectionProfile" % ptitle)
-                elif qs_el.get("questionsPerSection") is None:
-                    fail('профиль «%s»: в questionSelection обязателен questionsPerSection (например "all") — без него Айрен не откроет тест' % ptitle)
+            if qs_el is None:
+                fail("профиль «%s»: нет questionSelection" % ptitle)
+            elif has_sp and qs_el.get("questionsPerSection") is not None:
+                fail("профиль «%s»: questionsPerSection совместно с sectionProfile — ридер Айрен падает (строка 286); оставьте что-то одно" % ptitle)
+            elif not has_sp and qs_el.get("questionsPerSection") is None:
+                fail('профиль «%s»: в questionSelection обязателен questionsPerSection (например "all") — без него Айрен не откроет тест' % ptitle)
 
     # 9. Сценарии: подстановки $(var) против объявлений var
     re_var_block = re.compile(r"^\s*var\s*$")
@@ -423,7 +472,10 @@ def cmd_build(args):
 
     questions, img_count = validate(root, source,
                                     check_near_dups=args.check_near_dups,
-                                    check_blank=args.check_images_blank)
+                                    check_blank=args.check_images_blank,
+                                    img_min=args.img_min,
+                                    img_max_question=args.img_max_question,
+                                    img_max_answer=args.img_max_answer)
 
     out = None
     if not args.no_pack:
@@ -647,6 +699,12 @@ def main():
                          help="предупреждать о вариантах-«почти-дублях» (возможные опечатки)")
     p_build.add_argument("--check-images-blank", action="store_true",
                          help="предупреждать о пустых/однородных PNG")
+    p_build.add_argument("--img-min", type=int, default=24,
+                         help="минимальный размер стороны изображения в пикселях (по умолчанию 24 — размер шрифта)")
+    p_build.add_argument("--img-max-question", type=int, default=500,
+                         help="максимум стороны рисунка в ВОПРОСЕ (по умолчанию 500)")
+    p_build.add_argument("--img-max-answer", type=int, default=400,
+                         help="максимум стороны рисунка в ВАРИАНТЕ ОТВЕТА (по умолчанию 400)")
 
     p_unpack = sub.add_parser("unpack", help="распаковка .itx в папку")
     p_unpack.add_argument("--source", required=True, help="файл .itx")
