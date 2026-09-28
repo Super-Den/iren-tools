@@ -201,8 +201,14 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False,
     for img in root.iter("img"):
         img_count += 1
         src = img.get("src", "")
-        if src and not os.path.exists(os.path.join(source_dir, src.replace("/", os.sep))):
+        if not src:
+            continue
+        if not src.startswith("images/"):
+            fail('путь картинки "%s" должен начинаться с images/ — Айрен ищет рисунки только в этом каталоге архива' % src)
+        elif not os.path.exists(os.path.join(source_dir, src.replace("/", os.sep))):
             fail("Нет файла картинки: " + src)
+        if not src.isascii():
+            warn('имя файла картинки "%s" содержит не-ASCII символы — возможны проблемы кодировки; предпочтительны латинские имена' % src)
 
     # Карта родителей (для проверки модификаторов секций-предков)
     parent = {c: p for p in root.iter() for c in p}
