@@ -165,7 +165,8 @@ def content_images(content):
 
 
 def validate(root, source_dir, check_near_dups=False, check_blank=False,
-             img_min=24, img_max_question=500, img_max_answer=400):
+             img_min=24, img_max_width_question=1200, img_max_height_question=400,
+             img_max_width_answer=1200, img_max_height_answer=300):
     """Все проверки теста. Возвращает (список вопросов, число картинок-ссылок)."""
     questions = list(root.iter("question"))
     # Номер вопроса в списке программы «Айрен» = порядковый номер в файле
@@ -254,11 +255,12 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False,
             continue
         w, h = dims
         chain = list(ancestors_tags(img))
-        ctx = "answer" if any(t in chain for t in answer_markers) else "question"
-        cap = img_max_answer if ctx == "answer" else img_max_question
-        ctx_name = "варианта ответа" if ctx == "answer" else "вопроса"
-        if w > cap or h > cap:
-            warn("изображение %s (%dx%d) превышает максимум для %s (%dx%d) — уменьшите рисунок; файл собран" % (src, w, h, ctx_name, cap, cap))
+        if any(t in chain for t in answer_markers):
+            ctx_name, max_w, max_h = "варианта ответа", img_max_width_answer, img_max_height_answer
+        else:
+            ctx_name, max_w, max_h = "вопроса", img_max_width_question, img_max_height_question
+        if w > max_w or h > max_h:
+            warn("изображение %s (%dx%d) превышает максимум для %s (ширина ≤ %d, высота ≤ %d) — уменьшите рисунок; файл собран" % (src, w, h, ctx_name, max_w, max_h))
         elif w < img_min or h < img_min:
             warn("изображение %s (%dx%d) меньше минимума (%dx%d) — размер шрифта; при необходимости увеличьте" % (src, w, h, img_min, img_min))
 
@@ -480,8 +482,10 @@ def cmd_build(args):
                                     check_near_dups=args.check_near_dups,
                                     check_blank=args.check_images_blank,
                                     img_min=args.img_min,
-                                    img_max_question=args.img_max_question,
-                                    img_max_answer=args.img_max_answer)
+                                    img_max_width_question=args.img_max_w_question,
+                                    img_max_height_question=args.img_max_h_question,
+                                    img_max_width_answer=args.img_max_w_answer,
+                                    img_max_height_answer=args.img_max_h_answer)
 
     out = None
     if not args.no_pack:
@@ -707,10 +711,14 @@ def main():
                          help="предупреждать о пустых/однородных PNG")
     p_build.add_argument("--img-min", type=int, default=24,
                          help="минимальный размер стороны изображения в пикселях (по умолчанию 24 — размер шрифта)")
-    p_build.add_argument("--img-max-question", type=int, default=500,
-                         help="максимум стороны рисунка в ВОПРОСЕ (по умолчанию 500)")
-    p_build.add_argument("--img-max-answer", type=int, default=400,
-                         help="максимум стороны рисунка в ВАРИАНТЕ ОТВЕТА (по умолчанию 400)")
+    p_build.add_argument("--img-max-w-question", type=int, default=1200,
+                         help="максимум ШИРИНЫ рисунка в ВОПРОСЕ (по умолчанию 1200 — ширина поля вопроса)")
+    p_build.add_argument("--img-max-h-question", type=int, default=400,
+                         help="максимум ВЫСОТЫ рисунка в ВОПРОСЕ (по умолчанию 400)")
+    p_build.add_argument("--img-max-w-answer", type=int, default=1200,
+                         help="максимум ШИРИНЫ рисунка в ВАРИАНТЕ ОТВЕТА (по умолчанию 1200)")
+    p_build.add_argument("--img-max-h-answer", type=int, default=300,
+                         help="максимум ВЫСОТЫ рисунка в ВАРИАНТЕ ОТВЕТА (по умолчанию 300)")
 
     p_unpack = sub.add_parser("unpack", help="распаковка .itx в папку")
     p_unpack.add_argument("--source", required=True, help="файл .itx")
