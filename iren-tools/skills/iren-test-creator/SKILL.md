@@ -285,6 +285,7 @@ images/*.png      — картинки, на которые ссылаются �
 > **ОБЯЗАТЕЛЬНОЕ ПРАВИЛО (Айрен падает при нарушении любой из двух проверок):**
 > 1. Если в профиле **нет** `<sectionProfile>` — `<questionSelection>` обязан содержать `questionsPerSection` (обычно `"all"`).
 > 2. Если `<sectionProfile>` **есть** — в `<questionSelection>` **не должно быть** `questionsPerSection` (сэмплирование задаётся только через sectionProfile). Совмещение роняет открытие второй проверкой ридера.
+> 3. Если `sectionProfile` используется — его дерево обязано **зеркально повторять дерево секций**: имя каждого sectionProfile = имя соответствующей секции, число вложенных sectionProfile = число подсекций, рекурсивно для всех уровней (проверка linkSectionProfile; нарушение роняет открытие — подтверждено: у секции было 2 подсекции, у sectionProfile 0 детей). Рабочий образец: корневой sectionProfile с 6 детьми ↔ 6 подсекций, у листьев 0 ↔ 0. Надёжная альтернатива, избегающая всей этой логики: `questionsPerSection="all"` без sectionProfile.
 > BAD: `<questionSelection shuffleQuestions="true"/>` без sectionProfile — «Ошибка при открытии файла» (проверка 1).
 > BAD: `questionsPerSection="all"` вместе с `sectionProfile` — «Ошибка при открытии файла» (проверка 2).
 > GOOD: `<questionSelection questionsPerSection="all" shuffleQuestions="true"/>` без sectionProfile — безопасный дефолт для обоих профилей; либо `sectionProfile` **без** `questionsPerSection` (как в рабочих файлах). Валидатор ловит оба нарушения как ошибки.

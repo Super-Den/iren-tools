@@ -368,13 +368,35 @@ def validate(root, source_dir, check_near_dups=False, check_blank=False,
 
     # 8. sectionProfile: ссылки на существующие секции
     section_titles = {s.get("title") for s in root.iter("section")}
-    for sp in root.iter("sectionProfile"):
-        title = sp.get("title")
-        if title and title not in section_titles:
-            warn("sectionProfile ссылается на несуществующую секцию: «%s»" % title)
-        qq = sp.get("questions")
-        if qq and not re.match(r"^\d+(\.\d+)?%$", qq):
-            warn("sectionProfile «%s»: неожиданный формат questions=«%s»" % (title, qq))
+    # sectionProfile должен зеркально повторять дерево секций (linkSectionProfile):
+    # имя = имя секции; число вложенных sectionProfile = число подсекций; рекурсивно
+    def check_mirror(sp_el, sec_el, path):
+        sp_title = sp_el.get("title")
+        sec_title = sec_el.get("title")
+        if sp_title != sec_title:
+            warn("sectionProfile «%s» не совпадает по имени с секцией «%s» (путь: %s) — Айрен падает при открытии (linkSectionProfile)" % (sp_title, sec_title, path))
+        sp_children = sp_el.findall("sectionProfiles/sectionProfile")
+        subs = sec_el.find("sections")
+        sec_children = subs.findall("section") if subs is not None else []
+        if len(sp_children) != len(sec_children):
+            warn("sectionProfile «%s»: вложенных sectionProfile = %d, а подсекций у секции = %d — дерево sectionProfile обязано зеркально повторять дерево секций, иначе Айрен падает (linkSectionProfile). Надёжная альтернатива: questionsPerSection=\"all\" без sectionProfile" % (sp_title, len(sp_children), len(sec_children)))
+            return
+        for c_sp, c_sec in zip(sp_children, sec_children):
+            check_mirror(c_sp, c_sec, path + " > " + str(sec_title))
+
+    profiles_el2 = root.find("profiles")
+    if profiles_el2 is not None:
+        root_sections = root.findall("section")
+        for prof in profiles_el2.findall("profile"):
+            ext = prof.find("sectionProfile")
+            if ext is None or not root_sections:
+                continue
+            # внешний sectionProfile должен соответствовать ровно одной корневой секции
+            matches = [rs for rs in root_sections if rs.get("title") == ext.get("title")]
+            if len(matches) == 1:
+                check_mirror(ext, matches[0], ext.get("title"))
+            else:
+                warn("внешний sectionProfile «%s»: корневых секций с таким заголовком %d — укажите существующую корневую секцию" % (ext.get("title"), len(matches)))
 
     # 8б. Профили: совместимость с читателем Айрен
     profiles_el = root.find("profiles")
