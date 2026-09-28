@@ -1,0 +1,13 @@
+{
+  "name": "iren-tools",
+  "version": "1.0.0",
+  "description": "Создание, проверка и сборка тестов «Айрен» (.itx): скилл-методика + MCP-сервер (валидация, сборка, распаковка, сводка, проверка TeX-формул штатным рендерером Айрен). Неофициальный инструмент.",
+  "author": { "name": "SuperDen" },
+  "skills": "./skills",
+  "mcpServers": {
+    "iren": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs"]
+    }
+  }
+}
